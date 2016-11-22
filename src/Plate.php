@@ -11,14 +11,12 @@ class Plate{
 	private $_parsed = null;
 	private $_data = null;
 	private $_suportedChars = null;
-	private $_underLineChars = null;
 
 
 	public function __construct(){
 		$config = config('plate');
 		$this->_data = $config['state_data'];
 		$this->_suportedChars = $config['supported_chars'];
-		$this->_underLineChars = $config['under_line_chars'];
 	}
 
 	private function parse(){
