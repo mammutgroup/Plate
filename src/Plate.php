@@ -5,18 +5,25 @@ use Plate\Exception\CharIsNotValid;
 use Plate\Exception\StateIsNotValid;
 use Plate\Exception\CityNotFound;
 use Plate\Exception\PlateIsNotValid;
+use Plate\Exception\DateIsNotValid;
 
 class Plate{
 	private $_plate = null;
+	private $_resourcePath = null;
 	private $_parsed = null;
 	private $_data = null;
 	private $_suportedChars = null;
+	private $_engChars = null;
+	private $_image = null;
+	private $_date=null;
 
 
 	public function __construct(){
 		$config = config('plate');
 		$this->_data = $config['state_data'];
 		$this->_suportedChars = $config['supported_chars'];
+		$this->_engChars = $config['eng_chars'];
+		$this->_resourcePath = __DIR__ . DIRECTORY_SEPARATOR . 'Resources' . DIRECTORY_SEPARATOR;
 	}
 
 	private function parse(){
@@ -130,25 +137,46 @@ class Plate{
 	}
 
 	public function getImage($exportPath){
+		$imageName = $this->_getImageNameBasedOnChar();
+		$color = $this->_getColorNameBasedOnChar();
+		$this->_image = imagecreatefrompng($this->_resourcePath . $imageName);
+		$width = imagesx($this->_image);
+		$height = imagesy($this->_image);
+		
+		$this->_drawAllChars($color); // draw text
+		$this->_drawEnglishPlate(); // draw eng plate
+
+		//save image
+		imagepng($this->_image, $exportPath);
+		imagedestroy($this->_image);
+	}
+
+	public function withDate($date){
+		if (!preg_match('~^[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$~', $date)) {
+			throw new DateIsNotValid('Date format must be yy-mm-dd');
+		}
+		$this->_date = str_replace('-', '/', $date);
+		return $this;
+	}
+
+	private function _drawAllChars($color){
 		$data = $this->getparsedData();
-		$resourcePath = __DIR__ . DIRECTORY_SEPARATOR . 'Resources' . DIRECTORY_SEPARATOR;
-		$imageName = $this->isCab() ? 'plate-taxi' : 'plate-normal';
-		$im = imagecreatefrompng($resourcePath . $imageName . '.png');
-		$font = $resourcePath . 'IranPlateFont-Regular.ttf';
-		$color = 20;
-
-		$fontSize = 44;
-		$Y = 22;
-		$yChar = $Y - 1;
-
 		$char = mb_strlen($data['char'])==3 ? mb_substr($data['char'], 0,1) : $data['char'];
 		$string = $data['2DigitNumber'] . $char . $data['3DigitNumber'];
+		
+		$margins = [[-4, -12], [4, -12], [2, -7], [5, -11], [4, -10], [2, -10], [3, -10], [0, -10], [3, -10], [2, -11]];
+		$charMargin = [[8, 4], [-2, 4], [-6, 2], [-2, 3], [-3, 0], [3, 4], [-2, 4], [0, 0], [3, 2], [-2, 4]];
+		
+		$font = $this->_resourcePath . 'IranPlateFont-Regular.ttf';
+		
+		$fontSize = 48 - 5;
+		
+		$Y = 27;
+		$yChar = $Y - 1;
+		$x = $fontSize + 1;
+
+		
 		$chars = preg_split('//u', $string, -1, PREG_SPLIT_NO_EMPTY);
-
-
-		$margins = [[-4, -12], [4, -12], [2, -7], [2, -11], [2, -10], [1, -10], [3, -10], [2, -10], [0, -10], [2, -11]];
-		$charMargin = [[8, 4], [-2, 4], [-9, 2], [-2, 3], [-3, 0], [2, 4], [-7, 4], [0, 0], [6, 4], [-2, 4]];
-		$x =  $fontSize - 8;
 		foreach ($chars as $index=>$char) {
 			$y = is_numeric($char) ? $Y : $yChar;
 			
@@ -158,46 +186,88 @@ class Plate{
 			else{
 				$margin[0] = isset($chars[$index-1]) ? $charMargin[$chars[$index-1]][0] : 0;
 				$margin[1] = isset($chars[$index+1]) ? $charMargin[$chars[$index+1]][1] : 0;
-				$margin[0] += 2;
-				$margin[1] += 10;
+				$margin[0] += 12;
+				$margin[1] += 12;
 			}
 
-			$x += $margin[0];
-			$this->_gdDrawText($char, $im, $font, $fontSize, $color, $x, $y);
-			$x += $margin[1] + $fontSize;
+			$x += $margin[0] + 2;
+			$this->_drawChar($char, $font, $fontSize, $color, $x, $y);
+			$x += $margin[1] + 2 + $fontSize;
 		}
 		
 		$chars = preg_split('//u', $data['stateNumber'], -1, PREG_SPLIT_NO_EMPTY);
-		$x = 281;
-		$fontSize -= 7;
+		$x = 334;
+		$y += 13;
+		$fontSize -= 4;
+		$margins = [[0,0], [15,-19], [8,-11], [5,-9], [5,-9], [4,-7], [5,-6], [5,-7], [6,-9], [5,-8]];
 		foreach ($chars as $char) {
 			$margin = $margins[$char];
-			$x+= $margin[0]  + 3;
-			$this->_gdDrawText($char, $im, $font, $fontSize, $color, $x, $y + 10);
-			$x+= $margin[1] + 1  + $fontSize;
+			$x+= $margin[0];
+			$this->_drawChar($char, $font, $fontSize, $color, $x, $y);
+			$x+= $margin[1] + $fontSize;
 		}
-
-		imagepng($im, $exportPath);
-		imagedestroy($im);
 	}
 
-	private function _gdDrawText($text, $im, $font, $fontSize, $colorNo, $x=0, $y=0){
+	private function _drawChar($text, $font, $fontSize, $color, $x=0, $y=0){
+		$colors = [$color, 80, 200, 180];
+		$count = count($colors);
 		$text = $this->_convertPersianNumber($text);
 		$y += $fontSize;
-		$color = imagecolorallocate($im, $colorNo, $colorNo, $colorNo);
-		$colorNo += 200;
-		$gray1 = imagecolorallocate($im, $colorNo, $colorNo, $colorNo);
-		$colorNo -= 110;
-		$gray2 = imagecolorallocate($im, $colorNo, $colorNo, $colorNo);
 
-		imagettftext($im, $fontSize + 3, 0, $x - 1, $y + 2 , $gray2, $font, $text);
-		imagettftext($im, $fontSize + 1, 0, $x - 1, $y , $gray1, $font, $text);
-		imagettftext($im, $fontSize, 0, $x, $y , $color, $font, $text);
+		foreach (array_reverse($colors) as $index=>$color) {
+			$color = imagecolorallocate($this->_image, $color, $color, $color);
+			$xx = $x - $index * .2;
+			$yy = $y + $index * .2;
+			$ff = $fontSize + ($count - $index * .7);
+
+			imagettftext($this->_image, $ff, 0, $xx, $yy , $color, $font, $text);
+		}
 	}
 
 	private function _convertPersianNumber($string){
 	    $eng = range(0, 9);
 	    $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 	    return str_replace($eng, $persian, $string);
+	}
+
+	private function _getImageNameBasedOnChar(){
+		$groups = [
+			'taxi'=>['ت', 'ع'],
+			'gov'=>['الف'],
+			'police'=>['پ', 'ث'],
+		];
+		$char = $this->_parsed['char'];
+		foreach ($groups as $image => $chars) {
+			if (in_array($char, $chars)) {
+				return 'plate-' . $image . '.png';
+			}
+		}
+		return 'plate-normal.png';
+	}
+
+	private function _getColorNameBasedOnChar(){
+		$groups = [
+			240=>['الف', 'پ', 'ث'],
+		];
+		$char = $this->_parsed['char'];
+		foreach ($groups as $color => $chars) {
+			if (in_array($char, $chars)) {
+				return $color;
+			}
+		}
+		return 10;
+	}
+
+	private function _drawEnglishPlate(){
+		$font = $this->_resourcePath . 'font.ttf';
+		$textcolor = imagecolorallocate($this->_image, 150, 150, 150);
+		$eng = $this->_engChars[$this->_parsed['char']];
+		$text = $this->_parsed['2DigitNumber'] . $eng . $this->_parsed['3DigitNumber'] . '-' . $this->_parsed['stateNumber'];
+
+		imagettftext($this->_image, 9, 0, 125, 78 , $textcolor, $font, $text);
+
+		if (!empty($this->_date)) {
+			imagettftext($this->_image, 9, 0, 282, 79 , $textcolor, $font, $this->_date);
+		}
 	}
 }

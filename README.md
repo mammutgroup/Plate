@@ -59,3 +59,8 @@ Ho to use:
 ```php
   $plate->getImage('path/to/export/image.png');
 ```
+
+### Add date to image
+```php
+  $plate->withDate('95-05-01')->getImage('path/to/export/image.png');
+```
