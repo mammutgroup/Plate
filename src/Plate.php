@@ -139,16 +139,16 @@ class Plate{
 	public function getImage($exportPath){
 		$imageName = $this->_getImageNameBasedOnChar();
 		$color = $this->_getColorNameBasedOnChar();
-		$this->_image = imagecreatefrompng($this->_resourcePath . $imageName);
-		$width = imagesx($this->_image);
-		$height = imagesy($this->_image);
+		$this->_image = \imagecreatefrompng($this->_resourcePath . $imageName);
+		$width = \imagesx($this->_image);
+		$height = \imagesy($this->_image);
 		
 		$this->_drawAllChars($color); // draw text
 		$this->_drawEnglishPlate(); // draw eng plate
 
 		//save image
-		imagepng($this->_image, $exportPath);
-		imagedestroy($this->_image);
+		\imagepng($this->_image, $exportPath);
+		\imagedestroy($this->_image);
 	}
 
 	public function withDate($date){
@@ -215,12 +215,12 @@ class Plate{
 		$y += $fontSize;
 
 		foreach (array_reverse($colors) as $index=>$color) {
-			$color = imagecolorallocate($this->_image, $color, $color, $color);
+			$color = \imagecolorallocate($this->_image, $color, $color, $color);
 			$xx = $x - $index * .2;
 			$yy = $y + $index * .2;
 			$ff = $fontSize + ($count - $index * .7);
 
-			imagettftext($this->_image, $ff, 0, $xx, $yy , $color, $font, $text);
+			\imagettftext($this->_image, $ff, 0, $xx, $yy , $color, $font, $text);
 		}
 	}
 
@@ -260,14 +260,14 @@ class Plate{
 
 	private function _drawEnglishPlate(){
 		$font = $this->_resourcePath . 'font.ttf';
-		$textcolor = imagecolorallocate($this->_image, 150, 150, 150);
+		$textcolor = \imagecolorallocate($this->_image, 150, 150, 150);
 		$eng = $this->_engChars[$this->_parsed['char']];
 		$text = $this->_parsed['2DigitNumber'] . $eng . $this->_parsed['3DigitNumber'] . '-' . $this->_parsed['stateNumber'];
 
-		imagettftext($this->_image, 9, 0, 125, 78 , $textcolor, $font, $text);
+		\imagettftext($this->_image, 9, 0, 125, 78 , $textcolor, $font, $text);
 
 		if (!empty($this->_date)) {
-			imagettftext($this->_image, 9, 0, 282, 79 , $textcolor, $font, $this->_date);
+			\imagettftext($this->_image, 9, 0, 282, 79 , $textcolor, $font, $this->_date);
 		}
 	}
 }
