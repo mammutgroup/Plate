@@ -81,7 +81,7 @@ class Plate{
 
 	public function getRegEx(){
 		$farsiChars = implode('|', array_keys($this->_suportedChars));
-		return "/([1-9]\d{1})\s+({$farsiChars})\s+([1-9]\d{2})\s+\-\s+([1-9]\d{1})\s+(ایران)/";
+        return "/([1-9]\d{1})\s+({$farsiChars})\s+([1-9]\d{2})\s+\-\s+([1-9]\d{1}|10)\s+(ایران)/";
 	}
 
 	public function validate($plate = null, $softCheck = false){
