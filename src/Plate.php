@@ -108,7 +108,6 @@ class Plate
             if ($softCheck) {
                 return false;
             } else {
-                dd($plate);
                 throw new PlateIsNotValid("Plate Number Is Not Valid");
             }
         }
