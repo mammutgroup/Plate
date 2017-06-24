@@ -39,6 +39,7 @@ class Plate
             'cityName' => $this->_getCityNameByCharAndNumber($stateName, $character, $stateNumber),
             'type' => $this->_getTypeByChar($character),
             'char' => $character,
+            'charCode' => config('plate.char_codes.' . $character),
             '2DigitNumber' => $matchs[1],
             '3DigitNumber' => $matchs[3],
             'countryName' => $matchs[5],
@@ -79,6 +80,10 @@ class Plate
 
     public function setPlate($plate)
     {
+        if (is_numeric($plate)) {
+            $plate = $this->_plateFromCode($plate);
+        }
+
         $this->_plate = $plate;
         $this->validate();
         $this->parse();
@@ -103,6 +108,7 @@ class Plate
             if ($softCheck) {
                 return false;
             } else {
+                dd($plate);
                 throw new PlateIsNotValid("Plate Number Is Not Valid");
             }
         }
@@ -166,7 +172,7 @@ class Plate
 
         //save image
         ob_start();
-            \imagepng($this->_image, null);
+        \imagepng($this->_image, null);
         $content = ob_get_clean();
         \imagedestroy($this->_image);
         return $content;
@@ -179,6 +185,51 @@ class Plate
         }
         $this->_date = str_replace('-', '/', $date);
         return $this;
+    }
+
+    public function toNumber()
+    {
+        return $this->_parsed['stateNumber'] . $this->_parsed['charCode'] .$this->_parsed['2DigitNumber'] . $this->_parsed['3DigitNumber'];
+    }
+
+    public function toString()
+    {
+        return $this->_plate;
+    }
+
+    public function toArray()
+    {
+        $p = explode(' ', $this->_plate);
+        $plateArray = [
+            $p[5], // country
+            $p[4], // ciity code
+            $p[1], // char
+            $p[2], // 3 digits
+            $p[0], // 2 digits
+        ];
+
+        return $plateArray;
+    }
+
+    private function _plateFromCode($plate)
+    {
+        try {
+            preg_match('~^(\d{2})(\d{2})(\d{2})(\d{3})$~', $plate, $matches);
+            array_shift($matches);
+            $plate = $matches[2] . ' ' . $this->_charFromCode($matches[1]) . ' ' . $matches [3] . ' - ' . $matches[0] .  ' ایران';
+        } catch (\Exception $e) {
+        }
+        return $plate;
+    }
+
+    private function _charFromCode($code)
+    {
+        try {
+            $charCods = array_flip(config('plate.char_codes'));
+            return $charCods[$code];
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     private function _drawAllChars($color)
